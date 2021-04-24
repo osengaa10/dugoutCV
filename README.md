@@ -1,3 +1,6 @@
+## This is a copy of the depthai repository with minor changes taylored to my usecase.
+
+
 # DepthAI Python Library
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
