@@ -19,6 +19,11 @@ xoutRgb = pipeline.createXLinkOut()
 xoutRgb.setStreamName("rgb")
 camRgb.video.link(xoutRgb.input)
 
+controlIn = pipeline.createXLinkIn()
+controlIn.setStreamName('control')
+controlIn.out.link(camRgb.inputControl)
+
+
 # Create encoder to produce JPEG images
 videoEnc = pipeline.createVideoEncoder()
 videoEnc.setDefaultProfilePreset(camRgb.getVideoSize(), camRgb.getFps(), dai.VideoEncoderProperties.Profile.MJPEG)
@@ -32,6 +37,8 @@ videoEnc.bitstream.link(xoutJpeg.input)
 
 # Pipeline is defined, now we can connect to the device
 with dai.Device(pipeline) as device:
+    controlQueue = device.getInputQueue('control')
+
     # Start pipeline
     device.startPipeline()
 
@@ -43,6 +50,11 @@ with dai.Device(pipeline) as device:
     Path('06_data').mkdir(parents=True, exist_ok=True)
 
     while True:
+        ctrl = dai.CameraControl()
+        ctrl.setManualExposure(1000, 1600)
+        ctrl.setManualFocus(129)
+        controlQueue.send(ctrl)
+
         inRgb = qRgb.tryGet()  # Non-blocking call, will return a new data that has arrived or None otherwise
 
         if inRgb is not None:

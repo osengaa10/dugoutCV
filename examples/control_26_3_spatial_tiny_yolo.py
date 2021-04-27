@@ -6,6 +6,7 @@ import cv2
 import depthai as dai
 import numpy as np
 import time
+import matplotlib.pyplot as plt
 
 '''
 Spatial Tiny-yolo example
@@ -63,6 +64,9 @@ xoutNN.setStreamName("detections")
 xoutBoundingBoxDepthMapping.setStreamName("boundingBoxDepthMapping")
 xoutDepth.setStreamName("depth")
 
+controlIn = pipeline.createXLinkIn()
+controlIn.setStreamName('control')
+controlIn.out.link(colorCam.inputControl)
 
 colorCam.setPreviewSize(416, 416)
 colorCam.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
@@ -108,9 +112,14 @@ spatialDetectionNetwork.boundingBoxMapping.link(xoutBoundingBoxDepthMapping.inpu
 stereo.depth.link(spatialDetectionNetwork.inputDepth)
 spatialDetectionNetwork.passthroughDepth.link(xoutDepth.input)
 
+x_coordinates_set = []
+y_coordinates_set = []
+z_coordinates_set = []
+
 # Pipeline is defined, now we can connect to the device
 with dai.Device(pipeline) as device:
     # Start pipeline
+    controlQueue = device.getInputQueue('control')
     device.startPipeline()
 
     # Output queues will be used to get the rgb frames and nn data from the outputs defined above
@@ -126,11 +135,20 @@ with dai.Device(pipeline) as device:
     counter = 0
     fps = 0
     color = (255, 255, 255)
+    x_coordinates = []
+    y_coordinates = []
+    z_coordinates = []
+
+    t_coordinates = []
 
     while True:
         inPreview = previewQueue.get()
         inNN = detectionNNQueue.get()
         depth = depthQueue.get()
+
+        ctrl = dai.CameraControl()
+        ctrl.setManualExposure(4000, 1600)
+        controlQueue.send(ctrl)
 
         counter+=1
         current_time = time.monotonic()
@@ -172,11 +190,14 @@ with dai.Device(pipeline) as device:
             x2 = int(detection.xmax * width)
             y1 = int(detection.ymin * height)
             y2 = int(detection.ymax * height)
-            # if detection.label == 32:
-            #     print("x: " + str(detection.spatialCoordinates.x))
-            #     print("y: " + str(detection.spatialCoordinates.y))
-            #     print("z: " + str(detection.spatialCoordinates.z))
-            #     print(int(time.time() * 1000))
+            if detection.label == 32:
+                x_coordinates_set.append(detection.spatialCoordinates.x / 1000)
+                y_coordinates_set.append(detection.spatialCoordinates.y / 1000)
+                z_coordinates_set.append(detection.spatialCoordinates.z / 1000)
+                print("x: " + str(x_coordinates_set))
+                print("y: " + str(y_coordinates_set))
+                print("z: " + str(z_coordinates_set))
+
             #print(detection.label)
             try:
                 label = labelMap[detection.label]
@@ -196,3 +217,18 @@ with dai.Device(pipeline) as device:
 
         if cv2.waitKey(1) == ord('q'):
             break
+
+
+print("Done!")
+# Creating figure
+fig = plt.figure(figsize=(10, 7))
+ax = plt.axes(projection="3d")
+
+# Creating plot
+ax.scatter3D(x_coordinates_set, y_coordinates_set, z_coordinates_set, color="green")
+ax.plot(x_coordinates_set,y_coordinates_set,z_coordinates_set, color='r')
+plt.title("simple 3D scatter plot")
+ax.set_xlabel('X-axis', fontweight ='bold')
+ax.set_ylabel('Y-axis', fontweight ='bold')
+ax.set_zlabel('Z-axis', fontweight ='bold')
+plt.show()

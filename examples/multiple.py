@@ -6,6 +6,19 @@ import cv2
 import depthai as dai
 import numpy as np
 import time
+# OAK-D
+# 14442C1061E6C1D200 XLinkDeviceState.X_LINK_UNBOOTED
+
+# OAK-1
+# 14442C10E12853D000 XLinkDeviceState.X_LINK_UNBOOTED
+
+for device in dai.Device.getAllAvailableDevices():
+    print(f"{device.getMxId()} {device.state}")
+
+device_info = dai.Device.getDeviceByMxId("14442C1061E6C1D200")
+device_info2 = dai.Device.getDeviceByMxId("14442C10E12853D000")
+
+
 
 '''
 Spatial Tiny-yolo example
@@ -14,27 +27,14 @@ Spatial Tiny-yolo example
 '''
 
 # Tiny yolo v3/4 label texts
-labelMap = [
-    "person",         "bicycle",    "car",           "motorbike",     "aeroplane",   "bus",           "train",
-    "truck",          "boat",       "traffic light", "fire hydrant",  "stop sign",   "parking meter", "bench",
-    "bird",           "cat",        "dog",           "horse",         "sheep",       "cow",           "elephant",
-    "bear",           "zebra",      "giraffe",       "backpack",      "umbrella",    "handbag",       "tie",
-    "suitcase",       "frisbee",    "skis",          "snowboard",     "sports ball", "kite",          "baseball bat",
-    "baseball glove", "skateboard", "surfboard",     "tennis racket", "bottle",      "wine glass",    "cup",
-    "fork",           "knife",      "spoon",         "bowl",          "banana",      "apple",         "sandwich",
-    "orange",         "broccoli",   "carrot",        "hot dog",       "pizza",       "donut",         "cake",
-    "chair",          "sofa",       "pottedplant",   "bed",           "diningtable", "toilet",        "tvmonitor",
-    "laptop",         "mouse",      "remote",        "keyboard",      "cell phone",  "microwave",     "oven",
-    "toaster",        "sink",       "refrigerator",  "book",          "clock",       "vase",          "scissors",
-    "teddy bear",     "hair drier", "toothbrush"
-]
 
+
+labelMap = ["ball"]
 
 syncNN = True
 
 # Get argument first
-nnBlobPath = str((Path(__file__).parent / Path('models/tiny-yolo-v4_openvino_2021.2_6shave.blob')).resolve().absolute())
-#nnBlobPath = str((Path(__file__).parent / Path('models/frozen_darknet_yolov3_model.blob')).resolve().absolute())
+nnBlobPath = str((Path(__file__).parent / Path('models/frozen_darknet_yolov4_model.blob')).resolve().absolute())
 if len(sys.argv) > 1:
     nnBlobPath = sys.argv[1]
 
@@ -44,7 +44,7 @@ if not Path(nnBlobPath).exists():
 
 # Start defining a pipeline
 pipeline = dai.Pipeline()
-#pipeline.setOpenVINOVersion(dai.OpenVINO.Version.VERSION_2020_1)
+pipeline.setOpenVINOVersion(dai.OpenVINO.Version.VERSION_2021_1)
 
 # Define a source - color camera
 colorCam = pipeline.createColorCamera()
@@ -85,7 +85,7 @@ spatialDetectionNetwork.setBoundingBoxScaleFactor(0.5)
 spatialDetectionNetwork.setDepthLowerThreshold(100)
 spatialDetectionNetwork.setDepthUpperThreshold(5000)
 # Yolo specific parameters
-spatialDetectionNetwork.setNumClasses(80)
+spatialDetectionNetwork.setNumClasses(1)
 spatialDetectionNetwork.setCoordinateSize(4)
 spatialDetectionNetwork.setAnchors(np.array([10,14, 23,27, 37,58, 81,82, 135,169, 344,319]))
 spatialDetectionNetwork.setAnchorMasks({ "side26": np.array([1,2,3]), "side13": np.array([3,4,5]) })
@@ -108,8 +108,12 @@ spatialDetectionNetwork.boundingBoxMapping.link(xoutBoundingBoxDepthMapping.inpu
 stereo.depth.link(spatialDetectionNetwork.inputDepth)
 spatialDetectionNetwork.passthroughDepth.link(xoutDepth.input)
 
+x_coordinates_set = []
+y_coordinates_set = []
+z_coordinates_set = []
+
 # Pipeline is defined, now we can connect to the device
-with dai.Device(pipeline) as device:
+with dai.Device(pipeline, device_info) as device:
     # Start pipeline
     device.startPipeline()
 
@@ -125,7 +129,14 @@ with dai.Device(pipeline) as device:
     startTime = time.monotonic()
     counter = 0
     fps = 0
-    color = (255, 255, 255)
+    # color = (255, 255, 255)
+    color = (0, 0, 0)
+    x_coordinates = []
+    y_coordinates = []
+    z_coordinates = []
+
+    t_coordinates = []
+
 
     while True:
         inPreview = previewQueue.get()
@@ -134,7 +145,7 @@ with dai.Device(pipeline) as device:
 
         counter+=1
         current_time = time.monotonic()
-        if (current_time - startTime) > 1:
+        if (current_time - startTime) > 1 :
             fps = counter / (current_time - startTime)
             counter = 0
             startTime = current_time
@@ -146,9 +157,20 @@ with dai.Device(pipeline) as device:
         depthFrameColor = cv2.equalizeHist(depthFrameColor)
         depthFrameColor = cv2.applyColorMap(depthFrameColor, cv2.COLORMAP_HOT)
         detections = inNN.detections
+        # print(len(detections))
+
         if len(detections) != 0:
             boundingBoxMapping = xoutBoundingBoxDepthMapping.get()
             roiDatas = boundingBoxMapping.getConfigData()
+            ## FIGURING OUT THE DETECTION QUEUE STUFF
+            # if len(detections) > 1:
+            #     for detection in detections:
+            #         print("x: " + str(detection.spatialCoordinates.x))
+            #         print("y: " + str(detection.spatialCoordinates.y))
+            #         print("z: " + str(detection.spatialCoordinates.z))
+            #         print(int(time.time() * 1000))
+            #     print("=========================")
+            #     print("=========================")
 
             for roiData in roiDatas:
                 roi = roiData.roi
@@ -162,22 +184,53 @@ with dai.Device(pipeline) as device:
 
                 cv2.rectangle(depthFrameColor, (xmin, ymin), (xmax, ymax), color, cv2.FONT_HERSHEY_SCRIPT_SIMPLEX)
 
-
         # If the frame is available, draw bounding boxes on it and show the frame
         height = frame.shape[0]
-        width  = frame.shape[1]
+        width = frame.shape[1]
+
         for detection in detections:
             # Denormalize bounding box
             x1 = int(detection.xmin * width)
             x2 = int(detection.xmax * width)
             y1 = int(detection.ymin * height)
             y2 = int(detection.ymax * height)
-            # if detection.label == 32:
-            #     print("x: " + str(detection.spatialCoordinates.x))
-            #     print("y: " + str(detection.spatialCoordinates.y))
-            #     print("z: " + str(detection.spatialCoordinates.z))
-            #     print(int(time.time() * 1000))
-            #print(detection.label)
+
+            # # For straight on trajectory
+            # x_coordinates.append(detection.spatialCoordinates.z/1000)
+            # y_coordinates.append(detection.spatialCoordinates.y/1000)
+            # z_coordinates.append(detection.spatialCoordinates.x/1000)
+            # t_coordinates.append(int(time.time() * 1000)/1000)
+
+            # For side trajectory
+            x_coordinates.append(detection.spatialCoordinates.x / 1000)
+            y_coordinates.append(detection.spatialCoordinates.y / 1000)
+            z_coordinates.append(detection.spatialCoordinates.z / 1000)
+            t_coordinates.append(int(time.time() * 1000)/1000)
+
+            x_coordinates_set.append(detection.spatialCoordinates.x / 1000)
+            y_coordinates_set.append(detection.spatialCoordinates.y / 1000)
+            z_coordinates_set.append(detection.spatialCoordinates.z / 1000)
+            print("x: " + str(x_coordinates_set))
+            print("y: " + str(y_coordinates_set))
+            print("z: " + str(z_coordinates_set))
+            if len(x_coordinates) > 2:
+                x_coordinates.pop(0)
+                y_coordinates.pop(0)
+                z_coordinates.pop(0)
+                t_coordinates.pop(0)
+                #x_coordinates_set.append(x_coordinates)
+            # if len(x_coordinates) == 2:
+            #     trajectories(x_coordinates, y_coordinates, z_coordinates, t_coordinates)
+
+            # if len(x_coordinates) == 2:
+            #     x_coordinates_set.append(x_coordinates)
+            #     x_coordinates =[]
+            # print(x_coordinates_set)
+            # print("x: " + str(detection.spatialCoordinates.x))
+            # print("y: " + str(detection.spatialCoordinates.y))
+            # print("z: " + str(detection.spatialCoordinates.z))
+            # print(int(time.time() * 1000))
+            # print(detection.label)
             try:
                 label = labelMap[detection.label]
             except:
@@ -196,3 +249,17 @@ with dai.Device(pipeline) as device:
 
         if cv2.waitKey(1) == ord('q'):
             break
+
+# print("Done!")
+# # Creating figure
+# fig = plt.figure(figsize=(10, 7))
+# ax = plt.axes(projection="3d")
+#
+# # Creating plot
+# ax.scatter3D(x_coordinates_set, y_coordinates_set, z_coordinates_set, color="green")
+# ax.plot(x_coordinates_set,y_coordinates_set,z_coordinates_set, color='r')
+# plt.title("simple 3D scatter plot")
+# ax.set_xlabel('X-axis', fontweight ='bold')
+# ax.set_ylabel('Y-axis', fontweight ='bold')
+# ax.set_zlabel('Z-axis', fontweight ='bold')
+# plt.show()

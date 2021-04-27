@@ -50,6 +50,11 @@ stereo.depth.link(spatialLocationCalculator.inputDepth)
 topLeft = dai.Point2f(0.4, 0.4)
 bottomRight = dai.Point2f(0.6, 0.6)
 
+# topLeft2 = dai.Point2f(0.6, 0.4)
+# bottomRight2 = dai.Point2f(0.8, 0.6)
+# topLeft = dai.Point2f(0.1, 0.1)
+# bottomRight = dai.Point2f(0.9, 0.9)
+
 spatialLocationCalculator.setWaitForConfigInput(False)
 config = dai.SpatialLocationCalculatorConfigData()
 config.depthThresholds.lowerThreshold = 100
@@ -69,6 +74,7 @@ with dai.Device(pipeline) as device:
     spatialCalcConfigInQueue = device.getInputQueue("spatialCalcConfig")
 
     color = (255, 255, 255)
+    # color = (0 , 0, 0)
 
     print("Use WASD keys to move ROI!")
 
@@ -89,7 +95,9 @@ with dai.Device(pipeline) as device:
             ymin = int(roi.topLeft().y)
             xmax = int(roi.bottomRight().x)
             ymax = int(roi.bottomRight().y)
-
+            # print("x: " + str(depthData.spatialCoordinates.x))
+            # print("y: " + str(depthData.spatialCoordinates.y))
+            # print("z: " + str(depthData.spatialCoordinates.z))
             fontType = cv2.FONT_HERSHEY_TRIPLEX
             cv2.rectangle(depthFrameColor, (xmin, ymin), (xmax, ymax), color, cv2.FONT_HERSHEY_SCRIPT_SIMPLEX)
             cv2.putText(depthFrameColor, f"X: {int(depthData.spatialCoordinates.x)} mm", (xmin + 10, ymin + 20), fontType, 0.5, color)
