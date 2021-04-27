@@ -207,10 +207,10 @@ with dai.Device(pipeline) as device:
             z_coordinates.append(detection.spatialCoordinates.z / 1000)
             t_coordinates.append(int(time.time() * 1000)/1000)
 
-            x_coordinates_set.append(detection.spatialCoordinates.x / 1000)
+            #x_coordinates_set.append(detection.spatialCoordinates.x / 1000)
             y_coordinates_set.append(detection.spatialCoordinates.y / 1000)
             z_coordinates_set.append(detection.spatialCoordinates.z / 1000)
-            print("x: " + str(x_coordinates_set))
+            #print("x: " + str(x_coordinates_set))
             print("y: " + str(y_coordinates_set))
             print("z: " + str(z_coordinates_set))
             if len(x_coordinates) > 2:
@@ -218,7 +218,8 @@ with dai.Device(pipeline) as device:
                 y_coordinates.pop(0)
                 z_coordinates.pop(0)
                 t_coordinates.pop(0)
-                #x_coordinates_set.append(x_coordinates)
+                x_coordinates_set.append(x_coordinates)
+                print("x: " + str(x_coordinates_set))
             # if len(x_coordinates) == 2:
             #     trajectories(x_coordinates, y_coordinates, z_coordinates, t_coordinates)
 

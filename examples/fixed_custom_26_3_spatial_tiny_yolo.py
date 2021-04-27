@@ -107,6 +107,9 @@ spatialDetectionNetwork.setAnchors(np.array([10,14, 23,27, 37,58, 81,82, 135,169
 spatialDetectionNetwork.setAnchorMasks({ "side26": np.array([1,2,3]), "side13": np.array([3,4,5]) })
 spatialDetectionNetwork.setIouThreshold(0.5)
 
+# spatialDetectionNetwork.setNumInferenceThreads(2)
+# print(spatialDetectionNetwork.getNumInferenceThreads())
+
 # Create outputs
 
 monoLeft.out.link(stereo.left)
@@ -127,6 +130,7 @@ spatialDetectionNetwork.passthroughDepth.link(xoutDepth.input)
 x_coordinates_set = []
 y_coordinates_set = []
 z_coordinates_set = []
+t_coordinates_set = []
 i = 0
 vx_list = []
 vy_list = []
@@ -138,10 +142,15 @@ with dai.Device(pipeline) as device:
     device.startPipeline()
 
     # Output queues will be used to get the rgb frames and nn data from the outputs defined above
-    previewQueue = device.getOutputQueue(name="rgb", maxSize=4, blocking=False)
-    detectionNNQueue = device.getOutputQueue(name="detections", maxSize=4, blocking=False)
-    xoutBoundingBoxDepthMapping = device.getOutputQueue(name="boundingBoxDepthMapping", maxSize=4, blocking=False)
-    depthQueue = device.getOutputQueue(name="depth", maxSize=4, blocking=False)
+    previewQueue = device.getOutputQueue(name="rgb", maxSize=1, blocking=False)
+    detectionNNQueue = device.getOutputQueue(name="detections", maxSize=1, blocking=False)
+    xoutBoundingBoxDepthMapping = device.getOutputQueue(name="boundingBoxDepthMapping", maxSize=1, blocking=False)
+    depthQueue = device.getOutputQueue(name="depth", maxSize=1, blocking=False)
+
+    # previewQueue = device.getOutputQueue(name="rgb", maxSize=4, blocking=False)
+    # detectionNNQueue = device.getOutputQueue(name="detections", maxSize=4, blocking=False)
+    # xoutBoundingBoxDepthMapping = device.getOutputQueue(name="boundingBoxDepthMapping", maxSize=4, blocking=False)
+    # depthQueue = device.getOutputQueue(name="depth", maxSize=4, blocking=False)
 
     frame = None
     detections = []
@@ -164,7 +173,7 @@ with dai.Device(pipeline) as device:
         depth = depthQueue.get()
 
         ctrl = dai.CameraControl()
-        ctrl.setManualExposure(2500, 1600)
+        ctrl.setManualExposure(1000, 1600)
         # ctrl.setManualFocus(129)
         controlQueue.send(ctrl)
 
@@ -182,9 +191,14 @@ with dai.Device(pipeline) as device:
         depthFrameColor = cv2.equalizeHist(depthFrameColor)
         depthFrameColor = cv2.applyColorMap(depthFrameColor, cv2.COLORMAP_HOT)
         detections = inNN.detections
+        detected_time = time.monotonic()
         # print(len(detections))
 
         if len(detections) != 0:
+            t_coordinates.append(detected_time)
+            x_coordinates.append(detections[0].spatialCoordinates.x / 1000)
+            y_coordinates.append(detections[0].spatialCoordinates.y / 1000)
+            z_coordinates.append(detections[0].spatialCoordinates.z / 1000)
             boundingBoxMapping = xoutBoundingBoxDepthMapping.get()
             roiDatas = boundingBoxMapping.getConfigData()
             ## FIGURING OUT THE DETECTION QUEUE STUFF
@@ -206,6 +220,9 @@ with dai.Device(pipeline) as device:
                 ymin = int(topLeft.y)
                 xmax = int(bottomRight.x)
                 ymax = int(bottomRight.y)
+                # print("xmax: " + str(bottomRight.x))
+                print("width: " + str(xmax - xmin))
+                print("height: " + str(ymax - ymin))
 
                 cv2.rectangle(depthFrameColor, (xmin, ymin), (xmax, ymax), color, cv2.FONT_HERSHEY_SCRIPT_SIMPLEX)
 
@@ -227,36 +244,59 @@ with dai.Device(pipeline) as device:
             # t_coordinates.append(int(time.time() * 1000)/1000)
 
             # For side trajectory
-            x_coordinates.append(detection.spatialCoordinates.x / 1000)
-            y_coordinates.append(detection.spatialCoordinates.y / 1000)
-            z_coordinates.append(detection.spatialCoordinates.z / 1000)
-            t_coordinates.append(int(time.time() * 1000)/1000)
+            # x_coordinates.append(detection.spatialCoordinates.x / 1000)
+            # y_coordinates.append(detection.spatialCoordinates.y / 1000)
+            # z_coordinates.append(detection.spatialCoordinates.z / 1000)
+            # t_coordinates.append(int(time.time() * 1000)/1000)
+            # t_coordinates.append(time.monotonic())
 
+            # coordinates in list
             x_coordinates_set.append(detection.spatialCoordinates.x / 1000)
             y_coordinates_set.append(detection.spatialCoordinates.y / 1000)
             z_coordinates_set.append(detection.spatialCoordinates.z / 1000)
-            print("x_coordinates_set: " + str(x_coordinates_set))
-            print("y_coordinates_set: " + str(y_coordinates_set))
-            print("z_coordinates_set: " + str(z_coordinates_set))
+            # print("x_coordinates_set: " + str(x_coordinates_set))
+            # print("y_coordinates_set: " + str(y_coordinates_set))
+            # print("z_coordinates_set: " + str(z_coordinates_set))
             if len(x_coordinates) > 2:
                 x_coordinates.pop(0)
                 y_coordinates.pop(0)
                 z_coordinates.pop(0)
                 t_coordinates.pop(0)
-                #x_coordinates_set.append(x_coordinates)
+                # coordinates in pairs as nested list i.e. [[x1, x2], [x2, x3]]
+
+
 
             if len(x_coordinates) == 2:
                 v0x = ((x_coordinates[1] - x_coordinates[0]) / (t_coordinates[1] - t_coordinates[0]))
                 v0y = ((y_coordinates[1] - y_coordinates[0]) / (t_coordinates[1] - t_coordinates[0]))
                 v0z = ((z_coordinates[1] - z_coordinates[0]) / (t_coordinates[1] - t_coordinates[0]))
-                print("vx: " + str(v0x) + " vy: " + str(v0y) + " vz: " + str(v0z))
+                print("x: " + str(x_coordinates))
+                print("x_delta: " + str(x_coordinates[1] - x_coordinates[0]))
+                print("t: " + str(t_coordinates))
+                print("t_delta: " + str(t_coordinates[1] - t_coordinates[0]))
+                # print("vx: " + str(v0x) + " vy: " + str(v0y) + " vz: " + str(v0z))
+                print("vx: " + str(v0x))
                 vx_list.append(v0x)
                 vy_list.append(v0y)
                 vz_list.append(v0z)
-                #vectors(x_coordinates, y_coordinates, z_coordinates, t_coordinates)
+                # print("vx_list: " + str(vx_list))
+                # print("vy_list: " + str(vy_list))
+                # print("vz_list: " + str(vz_list))
+                # print(x_coordinates)
+                # x_coordinates_set.append(x_coordinates)
+                # y_coordinates_set.append(y_coordinates)
+                # z_coordinates_set.append(z_coordinates)
+                # t_coordinates_set.append(t_coordinates)
+                # print("x_coordinates_set: " + str(x_coordinates_set))
+                # print("y_coordinates_set: " + str(y_coordinates_set))
+                # print("z_coordinates_set: " + str(z_coordinates_set))
+                # vectors(x_coordinates, y_coordinates, z_coordinates, t_coordinates)
                 i = i+1
-                trajectories(x_coordinates, y_coordinates, z_coordinates, t_coordinates)
-                sendVectors(mean(vx_list), mean(vy_list), mean(vz_list))
+                # trajectories(x_coordinates, y_coordinates, z_coordinates, t_coordinates)
+                try:
+                    sendVectors(mean(vx_list), mean(vy_list), mean(vz_list))
+                except:
+                    pass
             # if len(x_coordinates) == 2:
             #     x_coordinates_set.append(x_coordinates)
             #     x_coordinates =[]
@@ -266,6 +306,9 @@ with dai.Device(pipeline) as device:
             # print("z: " + str(detection.spatialCoordinates.z))
             # print(int(time.time() * 1000))
             # print(detection.label)
+
+
+            print("vx_list: " + str(vx_list))
             try:
                 label = labelMap[detection.label]
             except:
