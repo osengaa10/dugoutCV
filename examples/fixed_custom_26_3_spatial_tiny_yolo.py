@@ -65,6 +65,7 @@ spatialDetectionNetwork = pipeline.createYoloSpatialDetectionNetwork()
 monoLeft = pipeline.createMonoCamera()
 monoRight = pipeline.createMonoCamera()
 stereo = pipeline.createStereoDepth()
+# stereo.setSubpixel(True)
 
 xoutRgb = pipeline.createXLinkOut()
 xoutNN = pipeline.createXLinkOut()
@@ -173,7 +174,7 @@ with dai.Device(pipeline) as device:
         depth = depthQueue.get()
 
         ctrl = dai.CameraControl()
-        ctrl.setManualExposure(1000, 1600)
+        ctrl.setManualExposure(2000, 1600)
         # ctrl.setManualFocus(129)
         controlQueue.send(ctrl)
 
@@ -326,7 +327,9 @@ with dai.Device(pipeline) as device:
         cv2.imshow("depth", depthFrameColor)
         cv2.imshow("rgb", frame)
 
-        if cv2.waitKey(1) == ord('q'):
+        if cv2.waitKey(1) == ord('q') or len(vx_list) > 2:
+            #sendVectors(mean(vx_list), mean(vy_list), mean(vz_list))
+            print("mean: " + str(mean(vx_list)))
             break
 
 
