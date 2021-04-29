@@ -10,7 +10,9 @@ import argparse
 labelMap = ["background", "aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chair", "cow",
             "diningtable", "dog", "horse", "motorbike", "person", "pottedplant", "sheep", "sofa", "train", "tvmonitor"]
 
+
 nnPathDefault = str((Path(__file__).parent / Path('models/mobilenet-ssd_openvino_2021.2_6shave.blob')).resolve().absolute())
+# nnPathDefault = str((Path(__file__).parent / Path('models/frozen_darknet_yolov4_model2.blob')).resolve().absolute())
 parser = argparse.ArgumentParser()
 parser.add_argument('nnPath', nargs='?', help="Path to mobilenet detection network blob", default=nnPathDefault)
 parser.add_argument('-ff', '--full_frame', action="store_true", help="Perform tracking on full RGB frame", default=False)
@@ -36,6 +38,7 @@ trackerOut = pipeline.createXLinkOut()
 xoutRgb.setStreamName("preview")
 trackerOut.setStreamName("tracklets")
 
+# colorCam.setPreviewSize(416, 416)
 colorCam.setPreviewSize(300, 300)
 colorCam.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
 colorCam.setInterleaved(False)
@@ -67,7 +70,7 @@ colorCam.preview.link(spatialDetectionNetwork.input)
 objectTracker.passthroughTrackerFrame.link(xoutRgb.input)
 
 
-objectTracker.setDetectionLabelsToTrack([15])  # track only person
+objectTracker.setDetectionLabelsToTrack([5])  # track only person
 # possible tracking types: ZERO_TERM_COLOR_HISTOGRAM, ZERO_TERM_IMAGELESS
 objectTracker.setTrackerType(dai.TrackerType.ZERO_TERM_COLOR_HISTOGRAM)
 # take the smallest ID when new object is tracked, possible options: SMALLEST_ID, UNIQUE_ID
