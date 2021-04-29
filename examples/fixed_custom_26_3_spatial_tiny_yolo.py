@@ -44,8 +44,10 @@ labelMap = ["ball"]
 
 syncNN = True
 
+
 # Get argument first
 nnBlobPath = str((Path(__file__).parent / Path('models/frozen_darknet_yolov4_model2.blob')).resolve().absolute())
+# nnBlobPath = str((Path(__file__).parent / Path('models/frozen_darknet_yolov4_model_416x416_13shaves.blob')).resolve().absolute())
 if len(sys.argv) > 1:
     nnBlobPath = sys.argv[1]
 
@@ -94,6 +96,7 @@ monoRight.setBoardSocket(dai.CameraBoardSocket.RIGHT)
 # setting node configs
 stereo.setOutputDepth(True)
 stereo.setConfidenceThreshold(255)
+# stereo.setExtendedDisparity(True)
 
 spatialDetectionNetwork.setBlobPath(nnBlobPath)
 spatialDetectionNetwork.setConfidenceThreshold(0.5)
@@ -101,6 +104,10 @@ spatialDetectionNetwork.input.setBlocking(False)
 spatialDetectionNetwork.setBoundingBoxScaleFactor(0.5)
 spatialDetectionNetwork.setDepthLowerThreshold(100)
 spatialDetectionNetwork.setDepthUpperThreshold(5000)
+# spatialDetectionNetwork.setNumNCEPerInferenceThread(19)
+# spatialDetectionNetwork.setNumInferenceThreads(4)
+# print(spatialDetectionNetwork.getNumInferenceThreads())
+
 # Yolo specific parameters
 spatialDetectionNetwork.setNumClasses(1)
 spatialDetectionNetwork.setCoordinateSize(4)
@@ -142,16 +149,16 @@ with dai.Device(pipeline) as device:
     controlQueue = device.getInputQueue('control')
     device.startPipeline()
 
-    # Output queues will be used to get the rgb frames and nn data from the outputs defined above
-    previewQueue = device.getOutputQueue(name="rgb", maxSize=1, blocking=False)
-    detectionNNQueue = device.getOutputQueue(name="detections", maxSize=1, blocking=False)
-    xoutBoundingBoxDepthMapping = device.getOutputQueue(name="boundingBoxDepthMapping", maxSize=1, blocking=False)
-    depthQueue = device.getOutputQueue(name="depth", maxSize=1, blocking=False)
+    # # Output queues will be used to get the rgb frames and nn data from the outputs defined above
+    # previewQueue = device.getOutputQueue(name="rgb", maxSize=1, blocking=False)
+    # detectionNNQueue = device.getOutputQueue(name="detections", maxSize=1, blocking=False)
+    # xoutBoundingBoxDepthMapping = device.getOutputQueue(name="boundingBoxDepthMapping", maxSize=1, blocking=False)
+    # depthQueue = device.getOutputQueue(name="depth", maxSize=1, blocking=False)
 
-    # previewQueue = device.getOutputQueue(name="rgb", maxSize=4, blocking=False)
-    # detectionNNQueue = device.getOutputQueue(name="detections", maxSize=4, blocking=False)
-    # xoutBoundingBoxDepthMapping = device.getOutputQueue(name="boundingBoxDepthMapping", maxSize=4, blocking=False)
-    # depthQueue = device.getOutputQueue(name="depth", maxSize=4, blocking=False)
+    previewQueue = device.getOutputQueue(name="rgb", maxSize=4, blocking=False)
+    detectionNNQueue = device.getOutputQueue(name="detections", maxSize=4, blocking=False)
+    xoutBoundingBoxDepthMapping = device.getOutputQueue(name="boundingBoxDepthMapping", maxSize=4, blocking=False)
+    depthQueue = device.getOutputQueue(name="depth", maxSize=4, blocking=False)
 
     frame = None
     detections = []
@@ -174,7 +181,7 @@ with dai.Device(pipeline) as device:
         depth = depthQueue.get()
 
         ctrl = dai.CameraControl()
-        ctrl.setManualExposure(2000, 1600)
+        ctrl.setManualExposure(1000, 1600)
         # ctrl.setManualFocus(129)
         controlQueue.send(ctrl)
 
@@ -200,17 +207,14 @@ with dai.Device(pipeline) as device:
             x_coordinates.append(detections[0].spatialCoordinates.x / 1000)
             y_coordinates.append(detections[0].spatialCoordinates.y / 1000)
             z_coordinates.append(detections[0].spatialCoordinates.z / 1000)
+        if len(detections) > 1:
+            for detection in detections:
+                print("MULTIPLE DETECTIONS: " + str(detection.spatialCoordinates.x/ 1000))
+
+
             boundingBoxMapping = xoutBoundingBoxDepthMapping.get()
             roiDatas = boundingBoxMapping.getConfigData()
-            ## FIGURING OUT THE DETECTION QUEUE STUFF
-            # if len(detections) > 1:
-            #     for detection in detections:
-            #         print("x: " + str(detection.spatialCoordinates.x))
-            #         print("y: " + str(detection.spatialCoordinates.y))
-            #         print("z: " + str(detection.spatialCoordinates.z))
-            #         print(int(time.time() * 1000))
-            #     print("=========================")
-            #     print("=========================")
+
 
             for roiData in roiDatas:
                 roi = roiData.roi
@@ -327,10 +331,18 @@ with dai.Device(pipeline) as device:
         cv2.imshow("depth", depthFrameColor)
         cv2.imshow("rgb", frame)
 
-        if cv2.waitKey(1) == ord('q') or len(vx_list) > 2:
-            #sendVectors(mean(vx_list), mean(vy_list), mean(vz_list))
+        if cv2.waitKey(1) == ord('q'):
+            # sendVectors(mean(vx_list), mean(vy_list), mean(vz_list))
             print("mean: " + str(mean(vx_list)))
+            print("x_coordinates_set length: " + str(len(x_coordinates_set)))
+            print(x_coordinates_set)
+            print("x_coordinates length: " + str(len(x_coordinates)))
+            print(x_coordinates)
             break
+        # if cv2.waitKey(1) == ord('q') or len(vx_list) > 2:
+        #     # sendVectors(mean(vx_list), mean(vy_list), mean(vz_list))
+        #     print("mean: " + str(mean(vx_list)))
+        #     break
 
 
 
