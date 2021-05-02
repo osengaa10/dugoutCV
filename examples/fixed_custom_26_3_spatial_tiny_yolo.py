@@ -48,7 +48,10 @@ syncNN = True
 # Get argument first
 # nnBlobPath = str((Path(__file__).parent / Path('models/frozen_darknet_yolov4_model2.blob')).resolve().absolute())
 # nnBlobPath = str((Path(__file__).parent / Path('models/frozen_darknet_yolov4_model_416x416_13shaves.blob')).resolve().absolute())
-nnBlobPath = str((Path(__file__).parent / Path('models/frozen_darknet_yolov4_model_416x416_6shaves.blob')).resolve().absolute())
+# nnBlobPath = str((Path(__file__).parent / Path('models/frozen_darknet_yolov4_model_416x416_6shaves.blob')).resolve().absolute())
+# nnBlobPath = str((Path(__file__).parent / Path('models/frozen_darknet_yolov4_model_416x416_4shaves_4cmx.blob')).resolve().absolute())
+# nnBlobPath = str((Path(__file__).parent / Path('models/frozen_darknet_yolov4_model_416x416_2shaves_2cmx.blob')).resolve().absolute())
+nnBlobPath = str((Path(__file__).parent / Path('models/frozen_darknet_yolov4_model_416x416_5shaves_5cmx.blob')).resolve().absolute())
 if len(sys.argv) > 1:
     nnBlobPath = sys.argv[1]
 
