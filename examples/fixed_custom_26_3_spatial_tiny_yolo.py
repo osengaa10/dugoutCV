@@ -46,8 +46,9 @@ syncNN = True
 
 
 # Get argument first
-nnBlobPath = str((Path(__file__).parent / Path('models/frozen_darknet_yolov4_model2.blob')).resolve().absolute())
+# nnBlobPath = str((Path(__file__).parent / Path('models/frozen_darknet_yolov4_model2.blob')).resolve().absolute())
 # nnBlobPath = str((Path(__file__).parent / Path('models/frozen_darknet_yolov4_model_416x416_13shaves.blob')).resolve().absolute())
+nnBlobPath = str((Path(__file__).parent / Path('models/frozen_darknet_yolov4_model_416x416_6shaves.blob')).resolve().absolute())
 if len(sys.argv) > 1:
     nnBlobPath = sys.argv[1]
 
@@ -95,11 +96,14 @@ monoRight.setBoardSocket(dai.CameraBoardSocket.RIGHT)
 
 # setting node configs
 stereo.setOutputDepth(True)
+# stereo.setConfidenceThreshold(240)
 stereo.setConfidenceThreshold(255)
+# stereo.setLeftRightCheck(True)
 # stereo.setExtendedDisparity(True)
 
 spatialDetectionNetwork.setBlobPath(nnBlobPath)
-spatialDetectionNetwork.setConfidenceThreshold(0.5)
+spatialDetectionNetwork.setConfidenceThreshold(0.1)
+# spatialDetectionNetwork.setConfidenceThreshold(0.5)
 spatialDetectionNetwork.input.setBlocking(False)
 spatialDetectionNetwork.setBoundingBoxScaleFactor(0.5)
 spatialDetectionNetwork.setDepthLowerThreshold(100)
@@ -207,9 +211,6 @@ with dai.Device(pipeline) as device:
             x_coordinates.append(detections[0].spatialCoordinates.x / 1000)
             y_coordinates.append(detections[0].spatialCoordinates.y / 1000)
             z_coordinates.append(detections[0].spatialCoordinates.z / 1000)
-        if len(detections) > 1:
-            for detection in detections:
-                print("MULTIPLE DETECTIONS: " + str(detection.spatialCoordinates.x/ 1000))
 
 
             boundingBoxMapping = xoutBoundingBoxDepthMapping.get()
@@ -231,6 +232,10 @@ with dai.Device(pipeline) as device:
 
                 cv2.rectangle(depthFrameColor, (xmin, ymin), (xmax, ymax), color, cv2.FONT_HERSHEY_SCRIPT_SIMPLEX)
 
+            if len(detections) > 1:
+                for detection in detections:
+                    print("MULTIPLE DETECTIONS: " + str(detection.spatialCoordinates.x / 1000))
+
         # If the frame is available, draw bounding boxes on it and show the frame
         height = frame.shape[0]
         width = frame.shape[1]
@@ -242,34 +247,16 @@ with dai.Device(pipeline) as device:
             y1 = int(detection.ymin * height)
             y2 = int(detection.ymax * height)
 
-            # # For straight on trajectory
-            # x_coordinates.append(detection.spatialCoordinates.z/1000)
-            # y_coordinates.append(detection.spatialCoordinates.y/1000)
-            # z_coordinates.append(detection.spatialCoordinates.x/1000)
-            # t_coordinates.append(int(time.time() * 1000)/1000)
-
-            # For side trajectory
-            # x_coordinates.append(detection.spatialCoordinates.x / 1000)
-            # y_coordinates.append(detection.spatialCoordinates.y / 1000)
-            # z_coordinates.append(detection.spatialCoordinates.z / 1000)
-            # t_coordinates.append(int(time.time() * 1000)/1000)
-            # t_coordinates.append(time.monotonic())
-
             # coordinates in list
             x_coordinates_set.append(detection.spatialCoordinates.x / 1000)
             y_coordinates_set.append(detection.spatialCoordinates.y / 1000)
             z_coordinates_set.append(detection.spatialCoordinates.z / 1000)
-            # print("x_coordinates_set: " + str(x_coordinates_set))
-            # print("y_coordinates_set: " + str(y_coordinates_set))
-            # print("z_coordinates_set: " + str(z_coordinates_set))
+
             if len(x_coordinates) > 2:
                 x_coordinates.pop(0)
                 y_coordinates.pop(0)
                 z_coordinates.pop(0)
                 t_coordinates.pop(0)
-                # coordinates in pairs as nested list i.e. [[x1, x2], [x2, x3]]
-
-
 
             if len(x_coordinates) == 2:
                 v0x = ((x_coordinates[1] - x_coordinates[0]) / (t_coordinates[1] - t_coordinates[0]))
@@ -333,14 +320,16 @@ with dai.Device(pipeline) as device:
 
         if cv2.waitKey(1) == ord('q'):
             # sendVectors(mean(vx_list), mean(vy_list), mean(vz_list))
-            print("mean: " + str(mean(vx_list)))
             print("x_coordinates_set length: " + str(len(x_coordinates_set)))
             print(x_coordinates_set)
-            print("x_coordinates length: " + str(len(x_coordinates)))
-            print(x_coordinates)
+            print("mean vx: " + str(mean(vx_list)))
+
             break
         # if cv2.waitKey(1) == ord('q') or len(vx_list) > 2:
-        #     # sendVectors(mean(vx_list), mean(vy_list), mean(vz_list))
+        #     try:
+        #         sendVectors(mean(vx_list), mean(vy_list), mean(vz_list))
+        #     except:
+        #         pass
         #     print("mean: " + str(mean(vx_list)))
         #     break
 

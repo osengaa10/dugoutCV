@@ -85,15 +85,15 @@ with dai.Device(pipeline) as dev:
     sendCamConfig = True
 
     # Defaults and limits for manual focus/exposure controls
-    lensPos = 150
+    lensPos = 129
     lensMin = 0
     lensMax = 255
 
-    expTime = 20000
+    expTime = 1000
     expMin = 1
     expMax = 33000
 
-    sensIso = 800
+    sensIso = 1600
     sensMin = 100
     sensMax = 1600
 
